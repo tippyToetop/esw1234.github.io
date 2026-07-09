@@ -1,27 +1,116 @@
-<!DOCTYPE html>
-<html>
+ <!DOCTYPE html>
+  <html>
 
-<body>
-<script type='text/javascript'>
-	function initEmbeddedMessaging() {
-		try {
-			embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
+  <body>
+  <script type='text/javascript'>
+    // Shared context payload sent to the agent on each message and on ready
+    const AGENT_CONTEXT = {
+      name: "_AgentContext",
+      value: {
+        valueType: "StructuredValue",
+        value: {
+          currentPage:
+  "https://pearson-stg4.pearson.com/en-us/subject-catalog/p/engineering-mechanics-statics/P200000003369?view=Educator",
+  // Current page URL
+          search: {
+            result: "UTM",
+            filters: [
+              "utm_content:abc",           // TODO: Replace with UTM content parameter
+              "utm_source:bcd",            // TODO: Replace with UTM source parameter
+              "utm_medium:<VALUE>",        // TODO: Replace <VALUE> with UTM medium parameter
+              "utm_campaign:<VALUE>",      // TODO: Replace <VALUE> with UTM campaign parameter
+              "utm_term:<VALUE>",          // TODO: Replace <VALUE> with UTM term parameter
+              "cmpid:<VALUE>",             // TODO: Replace <VALUE> with campaign ID
+              "form_url:<VALUE>",          // TODO: Replace <VALUE> with the form/product page URL
+              "referring_page_url:<VALUE>",// TODO: Replace <VALUE> with the referring page URL
+              "landing_page_url:<VALUE>",  // TODO: Replace <VALUE> with the landing page URL
+              "ga_id:<VALUE>",             // TODO: Replace <VALUE> with the Google Analytics ID
+            ],
+            facets: [],
+          },
+        },
+      },
+    };
 
-			embeddedservice_bootstrap.init(
-				'00DSG00000WuEp3',
-				'CWC_9',
-				'https://orgfarm-a504d7a61b.demo.test1.my.pc-rnd.site.com/ESWCWC91771270324502',
-				{
-					scrt2URL: 'https://orgfarm-a504d7a61b.demo.test1.my.pc-rnd.salesforce-scrt.com'
-				}
-			);
-		} catch (err) {
-			console.error('Error loading Embedded Messaging: ', err);
-		}
-	};
-</script>
-<script type='text/javascript' src='https://orgfarm-a504d7a61b.demo.test1.my.pc-rnd.site.com/ESWCWC91771270324502/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
+    // Sends the shared agent context to the session; reused across multiple event listeners
+    function setContext() {
+      return embeddedservice_bootstrap.utilAPI.setSessionContext([AGENT_CONTEXT])
+        .then(() => console.log("Successfully set context."))
+        .catch((err) => console.error("Error setting context:", err));
+    }
 
-</body>
+    // Fires when the embedded messaging chat library is fully loaded and ready
+    window.addEventListener("onEmbeddedMessagingReady", () => {
 
-</html>
+      // Pass hidden fields (locale and IP) before the chat pre-screen is shown
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Lang_locale: "en_US",   // language code. eg: es_GB
+        IP_Address: "10.10.10.10",
+      });
+
+      // Set initial session context as soon as the chat is ready
+      setContext();
+
+      // Listen for chip/button click events posted from inside the chat iframe
+      window.addEventListener("message", ({ data }) => {
+        if (data.type !== "MIAWClick") return;
+
+        // Send the chip's label as a text message to the bot
+        embeddedservice_bootstrap.utilAPI.sendTextMessage(data.message)
+          .then(() => console.log("Chip utterance sent:", data.message))
+          .catch((err) => console.error("sendTextMessage error:", err));
+      });
+    });
+  
+    // Fires when a new conversation is started; sends a silent trigger message to display welcome chips
+    window.addEventListener("onEmbeddedMessagingConversationStarted", () => {
+      embeddedservice_bootstrap.utilAPI.sendTextMessage("SYSTEM_MESSAGE:Hi")
+        .then(() => console.log("Welcome message sent."))
+        .catch((err) => console.error("sendTextMessage error:", err));
+    });
+
+    // Fires each time below messaging events occur - refreshes session context so the agent always has the latest data
+    const miawEvents = [
+      "onEmbeddedMessagingButtonCreated",
+      "onEmbeddedMessagingButtonClicked",
+      "onEmbeddedMessagingConversationOpened",
+      "onEmbeddedMessagingConversationRouted",
+      "onEmbeddedMessagingConversationParticipantChanged",
+      "onEmbeddedMessageSent",
+      "onEmbeddedMessageDelivered",
+      "onEmbeddedMessageRead",
+      "onEmbeddedMessagingSessionStatusUpdate",
+      "onEmbeddedMessagingWindowMaximized",
+    ];
+  
+    miawEvents.forEach((eventName) => {
+      window.addEventListener(eventName, () => setContext());
+    });
+
+    // Initialises and mounts the Salesforce Embedded Messaging widget
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
+
+        embeddedservice_bootstrap.init(
+          '00DSG00000WuEp3',
+          'CWC_9',
+          'https://orgfarm-a504d7a61b.demo.test1.my.pc-rnd.site.com/ESWCWC91771270324502',
+          {
+            scrt2URL: 'https://orgfarm-a504d7a61b.demo.test1.my.pc-rnd.salesforce-scrt.com'
+          }
+        );
+      } catch (err) {
+        console.error('Error loading Embedded Messaging: ', err);
+      }
+    }
+  </script>
+
+  <!-- Salesforce bootstrap script; calls initEmbeddedMessaging() once loaded -->
+  <script type='text/javascript' 
+  src='https://orgfarm-a504d7a61b.demo.test1.my.pc-rnd.site.com/ESWCWC91771270324502/assets/js/bootstrap.min.js' 
+  onload='initEmbeddedMessaging()'></script>
+
+  </body>
+  
+  </html>
